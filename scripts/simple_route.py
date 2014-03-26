@@ -1,0 +1,105 @@
+#!/usr/bin/env python
+
+#Routine to turtlebot, only use in an empty room
+#The robot going to move always to the front
+#When the robot encounter a wall, it will change the direction of its movement
+
+import rospy
+from geometry_msgs.msg import Twist
+from kobuki_msgs.msg import BumperEvent
+
+
+class TurtlebotBump:
+    
+    def __init__(self):
+        self.bumper = 0
+        self.lineal_speed_factor = 0.2
+        self.angular_speed_factor = 0.2
+        self.rate = 10
+        self.state = 1 #1 for run, 2 for bump
+        
+        self.__config_state_functions__()
+
+        self.__vel_publish__ = rospy.Publisher('~cmd_vel', Twist)
+        self.__bumper_subscribe__ = rospy.Subscriber("~bumper", BumperEvent , self.bumped)
+
+    def __config_state_functions__(self):
+        self.__state_functions__ = {1: self.move_forward,
+            2: self.move_backward_and_turning}
+
+    
+    def publish_speed(self, lineal_speed, angular_speed):
+        #print "publishing speed"
+        twist = Twist()
+        twist.linear.x = lineal_speed * self.lineal_speed_factor
+        twist.linear.y = 0; twist.linear.z = 0
+
+        twist.angular.x = 0; twist.angular.y = 0
+        twist.angular.z = angular_speed * self.angular_speed_factor
+        self.__vel_publish__.publish(twist)
+
+    def move_forward(self):
+        #print "publishing speed"
+        self.publish_speed(1,0)
+
+    def move_backward_and_turning(self):
+        #print "publishing speed"
+        #to move backward 1 seg
+        sec_to_move = 1
+        
+        if self.backward_movement_count < self.rate*sec_to_move:
+            self.backward_movement_count += 1
+            self.move_backward()
+        else: 
+            self.rotation_movement_count += 1
+            self.rotate_with_bump()
+
+    def rotate(self, direction):
+        self.publish_speed(0,direction)
+
+    def rotate_with_bump(self):
+        #to front bump, rotate more than 2.2 sec and less than 4.4 sec
+        sec_to_rotate = 2.2
+        direction_to_rotate = 1
+        if self.state_bump == 1:
+            sec_to_rotate = 3
+        elif self.state_bump == 0:
+            direction_to_rotate = -1
+        
+        if self.rotation_movement_count < self.rate*sec_to_rotate:
+            self.rotate(direction_to_rotate)
+        else:
+            #ending rotation, move forward
+            self.state = 1
+           
+        
+
+    def move_backward(self):
+        self.publish_speed(-1,0)
+
+    def bumped(self, data):
+        
+        #0 left
+        #1 front
+        #2 right
+        self.state_bump = data.bumper
+        
+        self.state = 2
+        self.backward_movement_count = 0
+        self.rotation_movement_count = 0
+
+    def run_on_state(self):
+        self.__state_functions__[self.state]()
+        
+if __name__=="__main__":
+    
+    rospy.init_node('simple_route')
+
+    turtlebot_bump = TurtlebotBump()
+    
+    r = rospy.Rate(turtlebot_bump.rate)
+    while not rospy.is_shutdown():
+        turtlebot_bump.run_on_state()
+        r.sleep()
+       
+

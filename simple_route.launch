@@ -1,0 +1,7 @@
+<launch>
+  <!-- turtlebot_teleop_key already has its own built in velocity smoother -->
+  <node pkg="turtlebot_examples" type="simple_route.py" name="simple_route"  output="screen">
+    <remap from="simple_route/cmd_vel" to="cmd_vel_mux/input/teleop"/>
+    <remap from="simple_route/bumper" to="mobile_base/events/bumper"/>
+  </node>
+</launch>
