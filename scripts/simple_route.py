@@ -58,11 +58,11 @@ class TurtlebotBump:
         self.publish_speed(0,direction)
 
     def rotate_with_bump(self):
-        #to front bump, rotate more than 2.2 sec and less than 4.4 sec
-        sec_to_rotate = 2.2
+       
+        sec_to_rotate = 6
         direction_to_rotate = 1
         if self.state_bump == 1:
-            sec_to_rotate = 3
+            sec_to_rotate = 10
         elif self.state_bump == 0:
             direction_to_rotate = -1
         
