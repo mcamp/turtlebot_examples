@@ -17,6 +17,7 @@ class TurtlebotBump:
         self.angular_speed_factor = 0.2
         self.rate = 10
         self.state = 1 #1 for run, 2 for bump
+        self.state_bump = -1
         
         self.__config_state_functions__()
 
@@ -71,6 +72,7 @@ class TurtlebotBump:
         else:
             #ending rotation, move forward
             self.state = 1
+            self.state_bump = -1
            
         
 
@@ -78,7 +80,6 @@ class TurtlebotBump:
         self.publish_speed(-1,0)
 
     def bumped(self, data):
-        
         #0 left
         #1 front
         #2 right
@@ -87,6 +88,12 @@ class TurtlebotBump:
         self.state = 2
         self.backward_movement_count = 0
         self.rotation_movement_count = 0
+    
+    def rotate_direction(self):
+        if self.state_bump == 2:
+            return 1
+        else:
+            return -1
 
     def run_on_state(self):
         self.__state_functions__[self.state]()

@@ -1,0 +1,101 @@
+#!/usr/bin/env python
+
+import rospy
+import smach
+import smach_ros
+
+from geometry_msgs.msg import Twist
+from simple_route import TurtlebotBump
+
+
+class ResetMovement(smach.State):
+    def __init__(self, turtlebot):
+        smach.State.__init__(self, outcomes=['moving'])
+        self.turtlebot = turtlebot
+    
+    def execute(self, userdata):
+        self.turtlebot.state_bump = -1
+        return 'moving'
+        
+##
+class Forward(smach.State):
+  def __init__(self, turtlebot):
+    smach.State.__init__(self, outcomes=['moving', 'bumped'])
+    self.turtlebot = turtlebot
+
+  def execute(self, userdata):
+    if self.turtlebot.state_bump == -1:
+      self.turtlebot.move_forward()
+      return 'moving'
+    else:
+      return 'bumped'
+    
+##
+class Rotate(smach.State):
+  def __init__(self, turtlebot):
+    smach.State.__init__(self, outcomes=['reset', 'rotate'])
+    self.turtlebot = turtlebot
+    self.init_time = -1
+
+  def execute(self, userdata):
+    self.turtlebot.rotate(self.turtlebot.rotate_direction())
+    if self.init_time == -1:
+      self.init_time = rospy.get_time()
+      
+    #rotated for 6 seconds
+    if rospy.get_time() - self.init_time > 8:
+      self.init_time = -1
+      return 'reset'
+    else:
+      
+      return 'rotate'
+
+class Backward(smach.State):
+    def __init__(self, turtlebot):
+        smach.State.__init__(self, outcomes=['rotate', 'backward'])
+        self.init_time = -1
+        self.turtlebot = turtlebot
+    
+    def execute(self, userdata):
+        self.turtlebot.move_backward()
+        if self.init_time == -1:
+            self.init_time = rospy.get_time()
+            
+        #moved for one second
+        if rospy.get_time() - self.init_time > 1:
+            self.init_time = -1
+            return 'rotate'
+        else:
+            return 'backward'
+
+
+def main():
+  rospy.init_node('simple_route_smach')
+
+  # Create a SMACH state machine
+  sm = smach.StateMachine(outcomes=['end'])
+
+  turtlebot = TurtlebotBump()
+  
+  
+  # Open the container
+  with sm:
+    # Add states to the container
+    smach.StateMachine.add('FORWARD', Forward(turtlebot), 
+                           transitions={'moving':'FORWARD', 'bumped':'BACKWARD'})    
+    smach.StateMachine.add('BACKWARD', Backward(turtlebot), 
+                           transitions={'backward':'BACKWARD', 'rotate': 'ROTATE'})                            
+    smach.StateMachine.add('ROTATE', Rotate(turtlebot), 
+                           transitions={'reset':'RESET', 'rotate': 'ROTATE'})    
+    smach.StateMachine.add('RESET', ResetMovement(turtlebot), 
+                           transitions={'moving':'FORWARD'})    
+                                                                                              
+
+  # Execute SMACH plan
+  outcome = sm.execute()
+
+
+
+if __name__ == '__main__':
+    main()
+
